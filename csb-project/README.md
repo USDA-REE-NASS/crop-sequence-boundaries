@@ -4,7 +4,7 @@ Repository containing the code to create Crop Sequence Boundaries (CSB).
 # Set up environment
 After git clone the repository to the local directory, you can set up CSB-project folder with following steps:
 1. Open command prompt and navigate to the CSB-project directory
-2. Set up folder directories and R environment for validation:					
+2. Set up folder directories:					
 	
 	If bash is available:	
 	1. Run `bash Setup_env.bash`
