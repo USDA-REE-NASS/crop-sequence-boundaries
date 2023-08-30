@@ -32,7 +32,9 @@ After git clone the repository to the local directory, you can set up CSB-projec
 	- Add file path for cnty_shp_file, national_cdl_folder under [prep]
 	
 # Steps for creating the CSB data
-1. Obtain Split_Raster data from Google Bucket
+1. Obtain CDL, reclassify, and filter as needed
+	- Split the rasters into smaller subregions for computational efficiency following naming convention region_subregion_year.tif
+  	(example ../2008/A1_0_2008.tif,  ../2008/A1_1_2008.tif, etc.)
 
 	If bash is available:
 	1. Create the CSB data. 
