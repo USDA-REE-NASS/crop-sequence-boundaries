@@ -36,7 +36,9 @@ def CSB_prep(file_path,shape_path,prep_path,CSByear,start_year,end_year):
 
     t_init = time.perf_counter()
     
-    shapefile_name = shape_path.split('\\')[-1].split('.')[0]
+    # issue with prep check not getting shapefile name from create path
+    #shapefile_name = shape_path.split('\\')[-1].split('.')[0]
+    shapefile_name = shape_path.split('/')[-1].split('.')[0]
     
     #set up logger
     LOG_FORMAT = "%(levelname)s %(asctime)s - %(message)s"
@@ -85,8 +87,10 @@ def CSB_prep(file_path,shape_path,prep_path,CSByear,start_year,end_year):
     FCtoFC = False
     while FCtoFC==False:
         try:
+            #arcpy.conversion.FeatureClassToFeatureClass(shape_path, Merge_gdb, shapefile_name)
             arcpy.conversion.FeatureClassToFeatureClass(shape_path, Merge_gdb, shapefile_name)
             subregion = f'{Merge_gdb}/{shapefile_name}'
+            #subregion = fr'memory/{shapefile_name}'
             FCtoFC = True
         except Exception as e:
             error_msg = e.args
@@ -215,11 +219,12 @@ def CSB_prep(file_path,shape_path,prep_path,CSByear,start_year,end_year):
     logger.info(f'{shapefile_name}: Spatial join CNTY')
     t1 = time.perf_counter()
     CNTY = agdists
+    CNTY1 = fr'memory/{shapefile_name}'
     SpatialJoin = False
     while SpatialJoin == False:
         try:
             arcpy.analysis.SpatialJoin(target_features=subregion + '_ASD', join_features=CNTY,
-                                       out_feature_class=subregion + '_CNTY1', join_operation="JOIN_ONE_TO_ONE",
+                                       out_feature_class=CNTY1, join_operation="JOIN_ONE_TO_ONE",
                                        join_type="KEEP_ALL",
                                        field_mapping="", match_option="LARGEST_OVERLAP",
                                        search_radius="", distance_field_name="")
@@ -252,11 +257,13 @@ def CSB_prep(file_path,shape_path,prep_path,CSByear,start_year,end_year):
     convert_raster = False
     while convert_raster == False:
         try:
-            arcpy.conversion.PolygonToRaster(subregion + '_CNTY1', "OBJECTID",
+            arcpy.conversion.PolygonToRaster(CNTY1, "OBJECTID",
                                              file_path+f'\Raster_Out\{shapefile_name}.tif',
+                                             #fr'memory\{shapefile_name}',
                                              assignmentType, "NONE", cellsize)
 
             tif_raster_file = file_path+f'\Raster_Out\{shapefile_name}.tif'
+            #tif_raster_file = fr'memory\{shapefile_name}'
             convert_raster = True
 
         except Exception as e:
@@ -288,7 +295,7 @@ def CSB_prep(file_path,shape_path,prep_path,CSByear,start_year,end_year):
     delete_field = False
     while delete_field == False:
         try:
-            arcpy.management.DeleteField(in_table=subregion + '_CNTY1', drop_field=dropFields)
+            arcpy.management.DeleteField(in_table=CNTY1, drop_field=dropFields)
             delete_field = True
         except Exception as e:
             error_msg = e.args
@@ -330,6 +337,7 @@ def CSB_prep(file_path,shape_path,prep_path,CSByear,start_year,end_year):
                 ZonalStatisticsAsTable(in_zone_data=tif_raster_file, zone_field='Value',
                                        in_value_raster=fr'{national_cdl_folder}\\{y}\\{y}_30m_cdls.tif',
                                        out_table=Merge_gdb + "//" + f"Raster_Out_{y}_30m_cdls",
+                                       #out_table=memory+ "//" + f"Raster_Out_{y}_30m_cdls",
                                        ignore_nodata="NODATA", statistics_type="MAJORITY")
                 zonal = True
             except Exception as e:
@@ -350,9 +358,10 @@ def CSB_prep(file_path,shape_path,prep_path,CSByear,start_year,end_year):
         alterField = False
         while alterField == False:
             try:
-                arcpy.management.AlterField(in_table=Merge_gdb + "//" + f"Raster_Out_{y}_30m_cdls",
-                                            field="MAJORITY", new_field_name="R" + str(f'{y}')[2:],
-                                            new_field_alias="R" + str(f'{y}')[2:], field_type="LONG", field_length=4,
+                arcpy.management.AlterField(#in_table=memory + "//" + f"Raster_Out_{y}_30m_cdls",
+                                            in_table=Merge_gdb + "//" + f"Raster_Out_{y}_30m_cdls",
+                                            field="MAJORITY", new_field_name="CDL" + str(f'{y}'),
+                                            new_field_alias="CDL" + str(f'{y}'), field_type="LONG", field_length=4,
                                             field_is_nullable="NULLABLE", clear_field_alias="DO_NOT_CLEAR")
                 alterField = True
                 
@@ -375,9 +384,10 @@ def CSB_prep(file_path,shape_path,prep_path,CSByear,start_year,end_year):
         while join_field == False:
             try:                                          
                          
-                arcpy.management.JoinField(in_data=subregion + '_CNTY1', in_field="OBJECTID",
+                arcpy.management.JoinField(in_data=CNTY1, in_field="OBJECTID",
                                            join_table=Merge_gdb + "//" + f"Raster_Out_{y}_30m_cdls",
-                                           join_field="Value", fields="" + "R" + (str(y)[2:]) + "")
+                                           #join_table=memory + "//" + f"Raster_Out_{y}_30m_cdls",
+                                           join_field="Value", fields="" + f"CDL{y}" + "")
                 join_field = True
                 
             except Exception as e:
@@ -405,7 +415,8 @@ def CSB_prep(file_path,shape_path,prep_path,CSByear,start_year,end_year):
     delete_polygon = False
     while delete_polygon == False:
         try:
-            arcpy.analysis.Select(subregion + '_CNTY1', subregion + '_CNTY', f"R{str(end_year)[2:]} IS NOT NULL")
+            #arcpy.analysis.Select(subregion + '_CNTY1', subregion + '_CNTY', f"CDL{y} IS NOT NULL")
+            arcpy.analysis.Select(CNTY1, subregion + '_CNTY', f"CDL{y} IS NOT NULL")
             delete_polygon = True
             
         except Exception as e:
@@ -432,7 +443,8 @@ def CSB_prep(file_path,shape_path,prep_path,CSByear,start_year,end_year):
     delete_layer = False
     while delete_layer == False:
         try:
-            arcpy.management.Delete(subregion + '_CNTY1')
+            #arcpy.management.Delete(subregion + '_CNTY1')
+            arcpy.management.Delete(CNTY1)
             delete_layer = True
         except Exception as e:
             error_msg = e.args
@@ -464,13 +476,15 @@ def CSB_prep(file_path,shape_path,prep_path,CSByear,start_year,end_year):
 if __name__ == '__main__':
 
     time0 = time.perf_counter()
-    print('Starting CSB prep code... ')
+    print('Starting CSB prep CHECK code... ')
+    cfg = utils.GetConfig('default')
+    version = cfg['global']['version']
     
     start_year = sys.argv[1]
     end_year = sys.argv[2]
     prep_dir = sys.argv[3] # create_1421_20220511_1
     print(f'Directory: {prep_dir}')
-    create_dir = utils.GetRunFolder('prep', start_year, end_year)
+    create_dir = utils.GetRunFolder('prep', start_year, end_year,version)
     print(f'Using results from: {create_dir}')
 
     csb_year = f'{str(start_year)[2:]}{str(end_year)[2:]}'
@@ -482,26 +496,47 @@ if __name__ == '__main__':
     file_obj = Path(csb_filePath).rglob(f'*.shp')
 
     list_of_files = sorted(file_obj, key=lambda x: os.stat(x).st_size)
-    file_lst = [x.__str__() for x in list_of_files]
+    in_file_lst = [x.__str__().split(f'_{start_year}_{end_year}')[0].split("Vectors_Out")[-1][1:] for x in list_of_files]
     
-    processes = []
+    out_file_obj = Path(f'{prep_dir}/Subregion_gdb').rglob(f'*.gdb')
+    out_file_lst = [x.__str__().split(f'_{start_year}_{end_year}')[0].split("Subregion_gdb")[-1][1:] for x in out_file_obj]
     
-    for shape_path in file_lst:
-
-        p = multiprocessing.Process(target=CSB_prep, 
-                                    args=[file_path, shape_path, prep_dir,
-                                          csb_year, start_year, end_year])
-        processes.append(p)
-
-    # get number of CPUs to use in run
-    cpu_prct = float(cfg['global']['cpu_prct'])
-    run_cpu = int(round( cpu_prct * multiprocessing.cpu_count(), 0 ))
-    print(f'Number of CPUs: {run_cpu}')
-    for i in chunks(processes,run_cpu):
-        for j in i:
-            j.start()
-        for j in i:
-            j.join()
-
+    process_file_lst = []
+    for i in in_file_lst:
+        if i not in out_file_lst:
+            process_file_lst.append(i)
+    
+    
+    
+    while len(process_file_lst) != 0:
+        processes = []
+        
+        for i in process_file_lst:
+    
+            shape_path = f'{create_dir}/Vectors_Out/{i}_{start_year}_{end_year}_Out.shp'
+            
+            p = multiprocessing.Process(target=CSB_prep, 
+                                        args=[file_path, shape_path, prep_dir,
+                                              csb_year, start_year, end_year])
+            processes.append(p)
+    
+        # get number of CPUs to use in run
+        cpu_prct = float(cfg['global']['cpu_prct'])
+        run_cpu = int(round( cpu_prct * multiprocessing.cpu_count(), 0 ))
+        print(f'Number of CPUs: {run_cpu}')
+        for i in chunks(processes,run_cpu):
+            for j in i:
+                j.start()
+            for j in i:
+                j.join()
+                
+        out_file_obj = Path(f'{prep_dir}/Subregion_gdb').rglob(f'*.gdb')
+        out_file_lst = [x.__str__().split(f'_{start_year}_{end_year}')[0].split("Subregion_gdb")[-1][1:] for x in out_file_obj]
+        
+        process_file_lst = []
+        for i in in_file_lst:
+            if i not in out_file_lst:
+                process_file_lst.append(i)
+    
     time_final = time.perf_counter()
     print(f'Total time to run CSB prep: {round((time_final - time0) / 60, 2)} minutes')
