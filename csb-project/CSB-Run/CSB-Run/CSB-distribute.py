@@ -1,5 +1,6 @@
 import time
 import os
+import shutil
 from pathlib import Path
 import argparse
 import logging
@@ -28,9 +29,11 @@ end_year = sys.argv[2]
 distribute_dir = sys.argv[3] # distribute_1421_20220511_1
 
 csb_year = f'{str(start_year)[2:]}{str(end_year)[2:]}'
+cfg = utils.GetConfig('default')
+version = cfg['global']['version']
 
 print(f'Directory: {distribute_dir}')
-prep_dir = utils.GetRunFolder('distribute', start_year, end_year)
+prep_dir = utils.GetRunFolder('distribute', start_year, end_year, version)
 print(f'Using results from: {prep_dir}')
 
 
@@ -71,14 +74,29 @@ for gdb in file_lst:
     process = False
     while process is False:
         try:
-            final_fc = arcpy.management.AddGeometryAttributes(Input_Features=gdb + f'/{shapefile_name}_CNTY',
-                                                              Geometry_Properties=("AREA", "CENTROID_INSIDE"),
-                                                              Area_Unit="ACRES")
-            arcpy.management.AlterField(in_table=final_fc, field="POLY_AREA", new_field_name='CSBACRES',
-                                        new_field_alias='CSBACRES')
+            arcpy.management.DeleteField(in_table=gdb + f'/{shapefile_name}_CNTY',
+                                                drop_field="CSBACRES;INSIDE_X;INSIDE_Y;POLY_AREA",
+                                                method="DELETE_FIELDS")
+            arcpy.management.RepairGeometry(
+                in_features=gdb + f'/{shapefile_name}_CNTY',
+                delete_null="DELETE_NULL",
+                validation_method="ESRI")
+                
+            arcpy.CalculateField_management(gdb + f'/{shapefile_name}_CNTY', "CSBACRES", "!SHAPE.AREA!/4046.86", "PYTHON_9.3")
+            arcpy.CalculateField_management(gdb + f'/{shapefile_name}_CNTY', "INSIDE_X", "!SHAPE.labelPoint.X!", "PYTHON_9.3")
+            arcpy.CalculateField_management(gdb + f'/{shapefile_name}_CNTY', "INSIDE_Y", "!SHAPE.labelPoint.Y!", "PYTHON_9.3")
+            
+            # final_fc = arcpy.management.AddGeometryAttributes(Input_Features=gdb + f'/{shapefile_name}_CNTY',
+                                                              # #Geometry_Properties=("AREA", "CENTROID_INSIDE"),
+                                                              # Geometry_Properties=("AREA"),
+                                                              # Area_Unit="ACRES")
+            # arcpy.management.AlterField(in_table=final_fc, field="POLY_AREA", new_field_name='CSBACRES',
+                                        # new_field_alias='CSBACRES')
 
-            arcpy.CopyFeatures_management(final_fc, national_sub_gdb + '\\' + shapefile_name)
+            #arcpy.CopyFeatures_management(final_fc, national_sub_gdb + '\\' + shapefile_name)
+            arcpy.CopyFeatures_management(gdb + f'/{shapefile_name}_CNTY', national_sub_gdb + '\\' + shapefile_name)
             process = True
+            
 
         except Exception as e:
             error_msg = e.args
@@ -86,7 +104,7 @@ for gdb in file_lst:
             f = open(error_path,'a')
             f.write(''.join(str(item) for item in error_msg))
             f.close()
-            print(f'first error: {error_msg}')
+            print(f'first error: {error_msg}, {shapefile_name}')
             if 'ERROR 002598: Name: "CSBACRES" already exists' in error_msg:
                 process = True
 
@@ -174,10 +192,10 @@ fc = national_gdb_lyr
 # Variable for years
 crop_rotation_year_list = []
 for year in range(int(start_year), int(end_year) + 1, 1):
-    crop_rotation_year_list.append("" + "R" + (
-        str(year)[2:]) + " \"" + "R" + (
-                                       str(year)[2:]) + "\" true true false 4 Long 0 0,First,#,"
-                                                        "" + fc + "," + "R" + (str(year)[2:]) + ",-1,-1;")
+    crop_rotation_year_list.append("" + "CDL" + (
+        str(year)) + " \"" + "CDL" + (
+                                       str(year)) + "\" true true false 4 Long 0 0,First,#,"
+                                                        "" + fc + "," + "CDL" + (str(year)) + ",-1,-1;")
 crop_rotation_year_str = "".join(crop_rotation_year_list)
 
 merge_process = False
@@ -346,4 +364,10 @@ time1 = time.perf_counter()
 duration = str(round((time1 - time0)/60, 2))
 logger.info(f'Total time for distribution takes {duration} minutes')
 
-
+# deleting folders 
+print("Deleting extra files...")
+shutil.rmtree(f'{prep_dir}\\National_gdb')
+shutil.rmtree(f'{prep_dir}\\Subregion_gdb')
+shutil.rmtree(f'{prep_dir}\\National_Subregion_gdb')
+shutil.rmtree(f'{creation_dir}\\Raster_Out')
+print("Complete deleting all the extra files")
