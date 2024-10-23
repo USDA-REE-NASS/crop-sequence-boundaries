@@ -61,6 +61,9 @@ def SetRunParams(config, args):
     # create run name e.g create_1421 
     runname_params = f'{args[0]}_{args[1][-2:]}{args[2][-2:]}'
 
+    # get version 
+    version = config['global']['version']
+    
     # make path to CSB workflow data folder
     scripts = {'create': 'CSB-create.py',
                 'prep': 'CSB-prep.py',
@@ -71,7 +74,7 @@ def SetRunParams(config, args):
     script = f'{os.getcwd()}/CSB-Run/CSB-Run/{scripts[workflow]}'
     
     run_date = dt.datetime.today().strftime("%Y%m%d")
-    runname = f'{runname_params}_{run_date}_'
+    runname = f'{runname_params}_{version}_{run_date}_'
     
     
     try:
@@ -85,8 +88,7 @@ def SetRunParams(config, args):
             creation_dir = creation_dir.replace('<runname>', runname)
 
     creation_dir = creation_dir.replace('<data>', data_dir)
-    creation_dir = creation_dir.replace('<version>',
-                                        config['global']['version'])
+
     # check if there is a partial run!
     if workflow == 'create_partial':
         creation_dir = creation_dir.replace('<runname>', args[1])
@@ -99,7 +101,7 @@ def SetRunParams(config, args):
 
 # function that builds folders for a CSB run
 def BuildFolders(creation_dir, workflow):
-    creation_folders = ['Combine','CombineAll','Merge','Vectors_In','Vectors_LL',
+    creation_folders = ['Merge','Vectors_In','Vectors_LL',
                         'Vectors_Out','Vectors_temp','log','Raster_Out']
     prep_folders = ['National_Subregion_gdb','Subregion_gdb','National_gdb','log']
     distribute_folders = ['National_Final_gdb','State_gdb','State','log','State/tif_state_extent']
@@ -177,9 +179,9 @@ def BuildFolders(creation_dir, workflow):
  
 # This function determines which creation run folder to use for given
 # csb prep params 
-def GetRunFolder(workflow, start_year, end_year):
+def GetRunFolder(workflow, start_year, end_year,version):
     cfg = GetConfig('default')
-    data_path = f"{cfg['folders']['data']}/v{cfg['global']['version']}"
+    data_path = f"{cfg['folders']['data']}"
     
     if workflow == 'prep':
         create_path = f'{data_path}/Creation'
@@ -188,16 +190,17 @@ def GetRunFolder(workflow, start_year, end_year):
         create_path =  f'{data_path}/Prep'
         prefix = 'prep'
     
-    files_prefix = f'{prefix}_{str(start_year)[2:]}{str(end_year)[2:]}_'
+    files_prefix = f'{prefix}_{str(start_year)[2:]}{str(end_year)[2:]}_{str(version)}'
     files = [f for f in os.listdir(create_path) if f.startswith(files_prefix) \
              and not f.endswith('BAD')]
     file_date_list = []
     for f in files:
         file_list = f.split('_')
-        file_date = file_list[2]
+        file_date = file_list[3]
         file_date = dt.datetime.strptime(file_date, '%Y%m%d')
         file_date_list.append(file_date)
     
+    # print(file_date_list)
     latest_date = max(file_date_list)
     latest_indeces = [i for i,x in enumerate(file_date_list) if x == latest_date]
     latest_files = [files[i] for i in latest_indeces]
