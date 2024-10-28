@@ -1,5 +1,5 @@
 {
-  "upload_type": "Python code", 
+  "upload_type": "software", 
   "description": "This is a GitHub repository containing code to create Crop Sequence Boundaries using United States Department of Agriculture National Agricultural Statistics Service historic Cropland Data Layers",
   "creators": [
      {
