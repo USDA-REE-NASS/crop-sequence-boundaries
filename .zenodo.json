@@ -1,0 +1,16 @@
+{
+  "upload_type": "Python code", 
+  "description": "This is a GitHub repository containing code to create Crop Sequence Boundaries using United States Department of Agriculture National Agricultural Statistics Service historic Cropland Data Layers",
+  "creators": [
+     {
+       "affiliation": "United States Department of Agriculture National Agricultural Statistics Service",
+       "name": "Kevin A. Hunt"
+     },
+     {
+       "affiliation": "United States Department of Agriculture Economic Research Service",
+       "name": "Peter C. Beeson"
+     }
+  ],
+  "keywords": ["statistical analysis", "landcover", "cropland", "geospatial", "CDL"],
+  "license": "MIT"
+}
